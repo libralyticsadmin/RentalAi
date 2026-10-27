@@ -10,7 +10,6 @@ export default async function DashboardLayout({
   const session = await getSession();
 
   if (!session) {
-    // Mock mode: bounce through the route handler that can set cookies.
     if (getAuthMode() === "mock") {
       redirect("/api/auth/mock-login");
     }
