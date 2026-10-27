@@ -1,4 +1,4 @@
-// Postgres-ready schema; local Phase 0 uses SQLite.
+// Postgres-ready schema; local Phase 0/1 uses SQLite.
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,12 +9,15 @@ datasource db {
 }
 
 model Organization {
-  id          String       @id @default(cuid())
-  name        String
-  slug        String       @unique
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  memberships Membership[]
+  id            String         @id @default(cuid())
+  name          String
+  slug          String         @unique
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  memberships   Membership[]
+  properties    Property[]
+  guests        Guest[]
+  reservations  Reservation[]
 }
 
 model User {
@@ -38,4 +41,98 @@ model Membership {
 
   @@unique([organizationId, userId])
   @@index([userId])
+}
+
+/// Listing / building under an org (Phase 1).
+model Property {
+  id               String         @id @default(cuid())
+  organizationId   String
+  name             String
+  address          String?
+  timezone         String         @default("Asia/Bangkok")
+  /// Nightly base rate in minor units (e.g. satang/cents).
+  baseRateCents    Int            @default(0)
+  currency         String         @default("THB")
+  status           String         @default("active")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  units            Unit[]
+  blocks           CalendarBlock[]
+  reservations     Reservation[]
+
+  @@index([organizationId])
+}
+
+/// Bookable unit within a property (Phase 1).
+model Unit {
+  id           String         @id @default(cuid())
+  propertyId   String
+  name         String
+  bedrooms     Int            @default(1)
+  maxGuests    Int            @default(2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  property     Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  blocks       CalendarBlock[]
+  reservations Reservation[]
+
+  @@index([propertyId])
+}
+
+/// Manual availability block / restriction (Phase 1).
+/// Dates are calendar days; endDate is exclusive (checkout-style).
+model CalendarBlock {
+  id         String   @id @default(cuid())
+  propertyId String
+  unitId     String?
+  startDate  DateTime
+  endDate    DateTime
+  reason     String?
+  createdAt  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit       Unit?    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, startDate, endDate])
+  @@index([unitId])
+}
+
+model Guest {
+  id             String         @id @default(cuid())
+  organizationId String
+  name           String
+  email          String?
+  phone          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reservations   Reservation[]
+
+  @@index([organizationId])
+}
+
+/// Stay / booking (Phase 1). checkOut is exclusive.
+model Reservation {
+  id               String       @id @default(cuid())
+  organizationId   String
+  propertyId       String
+  unitId           String?
+  guestId          String
+  checkIn          DateTime
+  checkOut         DateTime
+  /// inquiry | confirmed | checked_in | completed | cancelled
+  status           String       @default("confirmed")
+  nightlyRateCents Int?
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property         Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit             Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  guest            Guest        @relation(fields: [guestId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([propertyId, checkIn, checkOut])
+  @@index([unitId])
+  @@index([guestId])
 }

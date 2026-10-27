@@ -21,7 +21,7 @@ export function DashboardShell({
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-4 md:flex-col md:overflow-visible">
           {DASHBOARD_NAV.map((item) => {
-            const enabled = item.phase === 0;
+            const enabled = item.phase <= 1;
             return (
               <Link
                 key={item.href}

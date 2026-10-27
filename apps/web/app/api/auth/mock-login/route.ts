@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { createMockSessionCookie, getAuthMode } from "@/lib/auth";
 
+function safeNextPath(raw: string | null, origin: string): URL {
+  const fallback = new URL("/dashboard", origin);
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return fallback;
+  try {
+    return new URL(raw, origin);
+  } catch {
+    return fallback;
+  }
+}
+
 export async function GET(request: Request) {
   if (getAuthMode() !== "mock") {
     return NextResponse.json(
@@ -11,7 +21,7 @@ export async function GET(request: Request) {
 
   await createMockSessionCookie();
   const url = new URL(request.url);
-  const dest = new URL("/dashboard", url.origin);
+  const dest = safeNextPath(url.searchParams.get("next"), url.origin);
   return NextResponse.redirect(dest);
 }
 
